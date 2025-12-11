@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { generateSakuraTree } from './TreeGenerator';
-import { sakuraVertexShader, sakuraFragmentShader, trunkVertexShader, trunkFragmentShader } from './Shaders';
+import { sakuraVertexShader, sakuraFragmentShader } from './Shaders';
 
 interface SakuraTreeProps {
   progress: number; // 0 to 1
@@ -10,23 +10,21 @@ interface SakuraTreeProps {
 
 const SakuraTree: React.FC<SakuraTreeProps> = ({ progress }) => {
   // Refs
-  const petalMeshRef = useRef<THREE.InstancedMesh>(null);
-  const petalMatRef = useRef<THREE.ShaderMaterial>(null);
-  
-  const branchMeshRef = useRef<THREE.InstancedMesh>(null);
-  const branchMatRef = useRef<THREE.ShaderMaterial>(null);
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const materialRef = useRef<THREE.ShaderMaterial>(null);
 
   // Generate Data Once
-  // Use depth 6 for a fuller tree
-  const { petalData, branchData } = useMemo(() => generateSakuraTree(6), []);
+  const { petalData } = useMemo(() => generateSakuraTree(5), []);
 
-  // Setup Petal Instances
+  // Setup Instance Matrices and Attributes
   useEffect(() => {
-    if (!petalMeshRef.current) return;
+    if (!meshRef.current) return;
 
     const tempObj = new THREE.Object3D();
     
-    // Set initial matrices for petals
+    // Set initial matrices (all at identity rotation/scale, just positioned)
+    // We actually handle positions in the Shader for the morphing effect, 
+    // so we set the instanceMatrix to store the "Home" position in column 3.
     for (let i = 0; i < petalData.count; i++) {
       const x = petalData.positions[i * 3];
       const y = petalData.positions[i * 3 + 1];
@@ -41,104 +39,58 @@ const SakuraTree: React.FC<SakuraTreeProps> = ({ progress }) => {
         Math.random() * Math.PI
       );
       
-      // Random scale - Slightly smaller petals for cluster effect
-      const s = 0.3 + Math.random() * 0.4;
+      // Random scale
+      const s = 0.5 + Math.random() * 0.5;
       tempObj.scale.set(s, s, s);
 
       tempObj.updateMatrix();
-      petalMeshRef.current.setMatrixAt(i, tempObj.matrix);
+      meshRef.current.setMatrixAt(i, tempObj.matrix);
     }
-    petalMeshRef.current.instanceMatrix.needsUpdate = true;
+    meshRef.current.instanceMatrix.needsUpdate = true;
     
     // Custom Attribute for Randomness
-    petalMeshRef.current.geometry.setAttribute(
+    meshRef.current.geometry.setAttribute(
       'aRandom',
       new THREE.InstancedBufferAttribute(petalData.randoms, 3)
     );
 
   }, [petalData]);
 
-  // Setup Branch Instances
-  useEffect(() => {
-    if (!branchMeshRef.current) return;
-    
-    const mat = new THREE.Matrix4();
-    for (let i = 0; i < branchData.count; i++) {
-      mat.fromArray(branchData.matrices, i * 16);
-      branchMeshRef.current.setMatrixAt(i, mat);
-    }
-    branchMeshRef.current.instanceMatrix.needsUpdate = true;
-
-  }, [branchData]);
-
   // Animation Loop
   useFrame((state) => {
-    const time = state.clock.getElapsedTime();
-    
-    // Update Petals
-    if (petalMatRef.current) {
-      petalMatRef.current.uniforms.uTime.value = time;
-      petalMatRef.current.uniforms.uProgress.value = THREE.MathUtils.lerp(
-        petalMatRef.current.uniforms.uProgress.value,
+    if (materialRef.current) {
+      materialRef.current.uniforms.uTime.value = state.clock.getElapsedTime();
+      // Smoothly interpolate the progress uniform
+      materialRef.current.uniforms.uProgress.value = THREE.MathUtils.lerp(
+        materialRef.current.uniforms.uProgress.value,
         progress,
-        0.05
-      );
-    }
-
-    // Update Trunk
-    if (branchMatRef.current) {
-      branchMatRef.current.uniforms.uTime.value = time;
-      branchMatRef.current.uniforms.uProgress.value = THREE.MathUtils.lerp(
-        branchMatRef.current.uniforms.uProgress.value,
-        progress,
-        0.05
+        0.05 // Damping factor
       );
     }
   });
 
-  const petalUniforms = useMemo(() => ({
+  const uniforms = useMemo(() => ({
     uTime: { value: 0 },
     uProgress: { value: 0 },
     uColor1: { value: new THREE.Color("#FFB7C5") }, // Sakura Pink
     uColor2: { value: new THREE.Color("#E066FF") }, // Deep Magenta
   }), []);
 
-  const trunkUniforms = useMemo(() => ({
-    uTime: { value: 0 },
-    uProgress: { value: 0 },
-    uColor: { value: new THREE.Color("#2a1a1a") }, // Dark Brown
-  }), []);
-
   return (
-    <group>
-      {/* Branches */}
-      <instancedMesh ref={branchMeshRef} args={[undefined, undefined, branchData.count]} frustumCulled={false}>
-        {/* Unit Cylinder: Diameter 1, Height 1. Scale comes from Matrix. */}
-        <cylinderGeometry args={[0.5, 0.5, 1, 6]} />
-        <shaderMaterial
-          ref={branchMatRef}
-          vertexShader={trunkVertexShader}
-          fragmentShader={trunkFragmentShader}
-          uniforms={trunkUniforms}
-          transparent={true}
-        />
-      </instancedMesh>
-
-      {/* Petals */}
-      <instancedMesh ref={petalMeshRef} args={[undefined, undefined, petalData.count]} frustumCulled={false}>
-        <planeGeometry args={[0.4, 0.4, 1, 1]} />
-        <shaderMaterial
-          ref={petalMatRef}
-          vertexShader={sakuraVertexShader}
-          fragmentShader={sakuraFragmentShader}
-          uniforms={petalUniforms}
-          side={THREE.DoubleSide}
-          transparent={true}
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-      </instancedMesh>
-    </group>
+    <instancedMesh ref={meshRef} args={[undefined, undefined, petalData.count]} frustumCulled={false}>
+      {/* Petal Geometry: A simple plane or curved plane */}
+      <planeGeometry args={[0.5, 0.5, 1, 1]} />
+      <shaderMaterial
+        ref={materialRef}
+        vertexShader={sakuraVertexShader}
+        fragmentShader={sakuraFragmentShader}
+        uniforms={uniforms}
+        side={THREE.DoubleSide}
+        transparent={true}
+        depthWrite={false} // Important for particle-like transparency
+        blending={THREE.AdditiveBlending}
+      />
+    </instancedMesh>
   );
 };
 

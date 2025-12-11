@@ -11,8 +11,3 @@ export interface PetalData {
   randoms: Float32Array;
   count: number;
 }
-
-export interface BranchData {
-  matrices: Float32Array;
-  count: number;
-}

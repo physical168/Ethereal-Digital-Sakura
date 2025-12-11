@@ -103,17 +103,17 @@ const App: React.FC = () => {
         gl={{ 
           antialias: false, 
           toneMapping: THREE.ReinhardToneMapping, 
-          toneMappingExposure: 1.0 // Reduced from 1.5
+          toneMappingExposure: 1.5 
         }}
       >
-        <PerspectiveCamera makeDefault position={[0, 0, 40]} fov={45} />
+        <PerspectiveCamera makeDefault position={[0, 0, 30]} fov={45} />
         
         <Suspense fallback={null}>
           <color attach="background" args={['#0f2027']} />
           
           {/* Lighting: Cyber Zen Atmosphere */}
           <ambientLight intensity={0.2} color="#001133" />
-          <spotLight position={[10, 20, 10]} angle={0.5} penumbra={1} intensity={1.5} color="#FFB7C5" />
+          <spotLight position={[10, 20, 10]} angle={0.5} penumbra={1} intensity={2} color="#FFB7C5" />
           <pointLight position={[-10, 5, -10]} intensity={1} color="#00ffcc" distance={20} />
           
           {/* Main 3D Elements */}
@@ -122,7 +122,7 @@ const App: React.FC = () => {
           </group>
 
           {/* Environment Particles */}
-          <Stars radius={100} depth={50} count={3000} factor={4} saturation={0} fade speed={1} />
+          <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
           
           {/* Post Processing */}
           <PostProcessing />

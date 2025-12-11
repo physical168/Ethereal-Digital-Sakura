@@ -89,6 +89,7 @@ uniform float uProgress; // 0.0 to 1.0 (0 = Tree, 1 = Blizzard)
 uniform float uSway;     // Global wind intensity
 
 attribute vec3 aRandom; // x: random phase, y: random speed, z: random radius offset
+attribute vec3 aCenter; // The original center of the instance
 
 varying vec2 vUv;
 varying float vProgress;
@@ -205,86 +206,36 @@ void main() {
   
   // Apply a simplified tone mapping helper for bloom trigger
   if (glow > 0.5) {
-     gl_FragColor.rgb *= 1.1; 
+     gl_FragColor.rgb *= 1.5; 
   }
 }
 `;
 
 export const trunkVertexShader = `
-uniform float uProgress;
-uniform float uTime;
-
 varying vec2 vUv;
 varying vec3 vNormal;
-varying vec3 vPos;
-varying float vProgress;
 
 void main() {
   vUv = uv;
   vNormal = normalize(normalMatrix * normal);
-  vProgress = uProgress;
-
-  // Simple wind sway for trunk based on Y height
-  vec3 transformed = position;
-  float sway = sin(uTime * 1.0) * (instanceMatrix[3].y + 10.0) * 0.01;
-  transformed.x += sway * 0.5;
-
-  // Expansion effect on deconstruction
-  vec3 expansion = normal * uProgress * 2.0;
-  transformed += expansion;
-
-  vPos = (instanceMatrix * vec4(transformed, 1.0)).xyz;
-
-  gl_Position = projectionMatrix * viewMatrix * instanceMatrix * vec4(transformed, 1.0);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }
 `;
 
 export const trunkFragmentShader = `
 uniform vec3 uColor;
-uniform float uProgress;
-uniform float uTime;
 
 varying vec2 vUv;
 varying vec3 vNormal;
-varying vec3 vPos;
-
-${noiseChunk}
 
 void main() {
-  // Dissolve Effect
-  // Noise pattern based on world position
-  float noiseVal = snoise(vPos * 0.5 + vec3(0.0, uTime * 0.1, 0.0));
+  // Crystal/Glassy look
+  vec3 viewDir = normalize(cameraPosition - vNormal); // Approximation
+  float fresnel = pow(1.0 - abs(dot(vNormal, vec3(0.0, 0.0, 1.0))), 2.0);
   
-  // Threshold moves from -1 to 1 based on progress
-  float threshold = uProgress * 2.0 - 0.5; // Offset to start slightly later
+  vec3 col = uColor * 0.2;
+  col += vec3(0.1, 0.8, 0.5) * fresnel * 2.0; // Bio-luminescent Green edges
   
-  // If noise is below threshold, discard (dissolve)
-  if (noiseVal < threshold && uProgress > 0.01) {
-    discard;
-  }
-  
-  // Edge glow on dissolve
-  float edge = smoothstep(threshold, threshold + 0.1, noiseVal);
-  vec3 edgeColor = vec3(1.0, 0.5, 0.8) * 5.0; // Hot pink/glowing edge
-
-  // Standard material properties
-  vec3 viewDir = normalize(cameraPosition - vPos); 
-  float fresnel = pow(1.0 - max(dot(vNormal, viewDir), 0.0), 3.0);
-  
-  // Base Color: Dark Brown with slight transparency feel
-  vec3 col = uColor * 0.3;
-  
-  // Bio-luminescence pulse
-  float pulse = (sin(uTime * 2.0 + vPos.y) * 0.5 + 0.5);
-  vec3 bioGlow = vec3(0.1, 0.8, 0.5) * fresnel * 1.5 * pulse; 
-  
-  vec3 finalColor = col + bioGlow;
-  
-  // Mix in edge glow based on dissolve proximity
-  if (uProgress > 0.01) {
-    finalColor = mix(edgeColor, finalColor, edge);
-  }
-
-  gl_FragColor = vec4(finalColor, 0.95);
+  gl_FragColor = vec4(col, 0.9);
 }
 `;
