@@ -17,8 +17,8 @@ const SakuraTree: React.FC<SakuraTreeProps> = ({ progress }) => {
   const branchMatRef = useRef<THREE.ShaderMaterial>(null);
 
   // Generate Data Once
-  // Increased depth for more intricate branching and more particles
-  const { petalData, branchData } = useMemo(() => generateSakuraTree(5), []);
+  // Use depth 6 for a fuller tree
+  const { petalData, branchData } = useMemo(() => generateSakuraTree(6), []);
 
   // Setup Petal Instances
   useEffect(() => {
@@ -41,8 +41,8 @@ const SakuraTree: React.FC<SakuraTreeProps> = ({ progress }) => {
         Math.random() * Math.PI
       );
       
-      // Random scale
-      const s = 0.5 + Math.random() * 0.5;
+      // Random scale - Slightly smaller petals for cluster effect
+      const s = 0.3 + Math.random() * 0.4;
       tempObj.scale.set(s, s, s);
 
       tempObj.updateMatrix();
@@ -61,12 +61,6 @@ const SakuraTree: React.FC<SakuraTreeProps> = ({ progress }) => {
   // Setup Branch Instances
   useEffect(() => {
     if (!branchMeshRef.current) return;
-    
-    // Branch matrices are already computed in generator
-    // We just need to copy the float array into the InstancedMesh
-    // However, THREE.InstancedMesh expects us to call setMatrixAt usually.
-    // Or we can write directly to the buffer if we are careful.
-    // The safest react-three-fiber way is iterating.
     
     const mat = new THREE.Matrix4();
     for (let i = 0; i < branchData.count; i++) {

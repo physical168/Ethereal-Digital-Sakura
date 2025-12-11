@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { PetalData, BranchData } from '../types';
 
-export const generateSakuraTree = (depth: number = 5): { 
+export const generateSakuraTree = (depth: number = 6): { 
   petalData: PetalData, 
   branchData: BranchData
 } => {
@@ -22,19 +22,12 @@ export const generateSakuraTree = (depth: number = 5): {
     const end = start.clone().add(direction.clone().multiplyScalar(length));
     
     // 2. Generate Branch Segment Instance (Cylinder)
-    // Cylinder is Y-up, centered at (0,0,0).
-    // We need to position it at the midpoint between start and end.
     const midpoint = start.clone().add(end).multiplyScalar(0.5);
-    
-    // Calculate rotation to align Y-axis with direction
     const up = new THREE.Vector3(0, 1, 0);
-    // Ensure direction is normalized
     const dirNorm = direction.clone().normalize();
     const quaternion = new THREE.Quaternion().setFromUnitVectors(up, dirNorm);
     
-    // Create Matrix: Position + Rotation + Scale
-    // Scale X/Z is width (thickness), Y is length.
-    // Base geometry assumes diameter 1, height 1.
+    // Matrix: Position + Rotation + Scale (Width, Length, Width)
     const matrix = new THREE.Matrix4().compose(
       midpoint,
       quaternion,
@@ -43,23 +36,33 @@ export const generateSakuraTree = (depth: number = 5): {
     
     matrix.toArray(branchMatrices, branchMatrices.length);
 
-    // 3. Generate Petals
-    // Generate on tips and slightly on the second to last level for density
-    if (level >= depth - 1) {
-      const petalCountPerTip = 12; // Increased density
-      for (let i = 0; i < petalCountPerTip; i++) {
-        // Random offset sphere around the end of branch
-        const r = Math.random() * 2.5; // Radius of cluster
+    // 3. Generate Petals (Along the branch, not just at tips)
+    // Only generate flowers on the outer ~3 layers of the tree
+    if (level >= depth - 3) {
+      // Density increases towards the tips
+      const density = (level / depth) * 4.0; 
+      // Base count based on length
+      const count = Math.ceil(length * density * 3); 
+
+      for (let i = 0; i < count; i++) {
+        // Linear interpolation along branch
+        const t = Math.random();
+        const pointOnBranch = new THREE.Vector3().lerpVectors(start, end, t);
+
+        // Radial offset (Cloud volume around branch)
+        // Outer branches have tighter clouds, inner ones slightly looser
+        const cloudRadius = 0.8 + Math.random() * 1.5; 
+        
+        // Random spherical offset
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos(2 * Math.random() - 1);
-        
         const offset = new THREE.Vector3(
-          r * Math.sin(phi) * Math.cos(theta),
-          r * Math.sin(phi) * Math.sin(theta),
-          r * Math.cos(phi)
-        );
+          Math.sin(phi) * Math.cos(theta),
+          Math.sin(phi) * Math.sin(theta),
+          Math.cos(phi)
+        ).multiplyScalar(cloudRadius);
 
-        const pPos = end.clone().add(offset);
+        const pPos = pointOnBranch.add(offset);
         
         petalPositions.push(pPos.x, pPos.y, pPos.z);
         // Randoms: x=phase, y=speed/turbulence, z=radius offset
@@ -69,38 +72,53 @@ export const generateSakuraTree = (depth: number = 5): {
 
     // 4. Recursion
     if (level < depth) {
-      // 2 to 3 branches
-      const numChildren = 2 + (Math.random() > 0.4 ? 1 : 0); 
+      // Branching factor: Trunk splits into more, tips split into less
+      let numChildren = 2;
+      if (level === 0) numChildren = 3 + Math.floor(Math.random() * 2); // 3-4 main boughs
+      else if (level < 3) numChildren = 2 + Math.floor(Math.random() * 2); // 2-3 mid branches
       
       for (let i = 0; i < numChildren; i++) {
-        // Randomize direction
-        // Spread factor reduces as we go up to keep shape somewhat contained but still organic
-        const spread = 0.6 + (level * 0.1); 
+        // Spread logic
+        // Level 0 needs wide spread to create the canopy shape
+        // Higher levels need chaos
+        const spreadBase = level === 0 ? 0.8 : 0.5 + (Math.random() * 0.4);
         
-        const newDir = direction.clone().applyEuler(new THREE.Euler(
-          (Math.random() - 0.5) * spread,
-          (Math.random() - 0.5) * spread,
-          (Math.random() - 0.5) * spread
-        )).normalize();
-        
-        // Decay length and width
+        const rotation = new THREE.Euler(
+          (Math.random() - 0.5) * spreadBase * 2.5, // X spread
+          (Math.random() - 0.5) * spreadBase * 2.5, // Y rotation (twist)
+          (Math.random() - 0.5) * spreadBase * 2.5  // Z spread
+        );
+
+        let newDir = direction.clone().applyEuler(rotation).normalize();
+
+        // Gravity effect: Old branches droop down
+        // Apply more gravity at higher levels (thinner branches)
+        const gravity = 0.15 * (level / depth);
+        newDir.y -= gravity;
+        newDir.normalize();
+
+        // Decay
+        const lengthDecay = 0.7 + Math.random() * 0.1; // 0.7 to 0.8
+        const widthDecay = 0.65;
+
         createBranch(
           end, 
           newDir, 
-          length * 0.75, 
-          width * 0.7, 
+          length * lengthDecay, 
+          width * widthDecay, 
           level + 1
         );
       }
     }
   };
 
-  // Start generation from trunk base
+  // Start generation
+  // Start lower, trunk is shorter but thicker initially
   createBranch(
-    new THREE.Vector3(0, -12, 0), // Start lower to center tree in view
+    new THREE.Vector3(0, -10, 0), 
     new THREE.Vector3(0, 1, 0), 
-    11, 
-    2.5, 
+    7,    // Initial Length
+    2.2,  // Initial Width
     0
   );
 

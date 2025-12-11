@@ -106,7 +106,7 @@ const App: React.FC = () => {
           toneMappingExposure: 1.5 
         }}
       >
-        <PerspectiveCamera makeDefault position={[0, 0, 30]} fov={45} />
+        <PerspectiveCamera makeDefault position={[0, 0, 40]} fov={45} />
         
         <Suspense fallback={null}>
           <color attach="background" args={['#0f2027']} />
