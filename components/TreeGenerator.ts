@@ -40,9 +40,9 @@ export const generateSakuraTree = (depth: number = 6): {
     // Only generate flowers on the outer ~3 layers of the tree
     if (level >= depth - 3) {
       // Density increases towards the tips
-      const density = (level / depth) * 4.0; 
-      // Base count based on length
-      const count = Math.ceil(length * density * 3); 
+      const density = (level / depth) * 3.0; 
+      // Base count based on length - Reduced multiplier from 3 to 1.2 for fewer particles
+      const count = Math.ceil(length * density * 1.2); 
 
       for (let i = 0; i < count; i++) {
         // Linear interpolation along branch
@@ -51,7 +51,7 @@ export const generateSakuraTree = (depth: number = 6): {
 
         // Radial offset (Cloud volume around branch)
         // Outer branches have tighter clouds, inner ones slightly looser
-        const cloudRadius = 0.8 + Math.random() * 1.5; 
+        const cloudRadius = 0.5 + Math.random() * 1.2; 
         
         // Random spherical offset
         const theta = Math.random() * Math.PI * 2;

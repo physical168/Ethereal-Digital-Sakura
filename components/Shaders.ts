@@ -205,7 +205,7 @@ void main() {
   
   // Apply a simplified tone mapping helper for bloom trigger
   if (glow > 0.5) {
-     gl_FragColor.rgb *= 1.5; 
+     gl_FragColor.rgb *= 1.1; 
   }
 }
 `;

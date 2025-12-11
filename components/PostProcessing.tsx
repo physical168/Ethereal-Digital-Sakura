@@ -13,10 +13,10 @@ const PostProcessing = () => {
         height={480} 
       />
       <Bloom 
-        luminanceThreshold={0.4} 
+        luminanceThreshold={0.6} 
         luminanceSmoothing={0.9} 
         height={300} 
-        intensity={1.5} 
+        intensity={0.6} 
       />
       <ChromaticAberration
         blendFunction={BlendFunction.NORMAL} // Use NORMAL to see the effect
